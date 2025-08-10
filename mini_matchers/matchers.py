@@ -28,47 +28,9 @@ class MatcherProtocol(Protocol):
     def describe_expected(self) -> str:
         """期待値の説明を生成"""
         ...
-        
-    def __call__(self, actual: Any) -> None:
-        """アサーション実行"""
-        ...
 
 
-class BaseMatcherMixin:
-    """共通機能を提供するミックスインクラス"""
-    
-    def __init__(self, expected: Any):
-        """ベースマッチャーの初期化"""
-        self.expected = expected
-        self.negated = False
-        
-    def matches(self, actual: Any) -> bool:
-        """実際の値がマッチするかを判定（サブクラスで実装）"""
-        raise NotImplementedError("Subclasses must implement matches method")
-        
-    def describe_mismatch(self, actual: Any) -> str:
-        """マッチしない場合の説明を生成（サブクラスで実装）"""
-        raise NotImplementedError("Subclasses must implement describe_mismatch method")
-        
-    def describe_expected(self) -> str:
-        """期待値の説明を生成"""
-        return str(self.expected)
-        
-    def __call__(self, actual: Any) -> None:
-        """アサーション実行"""
-        result = self.matches(actual)
-        if self.negated:
-            result = not result
-            
-        if not result:
-            raise AssertionError(self._build_error_message(actual))
-            
-    def _build_error_message(self, actual: Any) -> str:
-        """エラーメッセージを構築"""
-        if self.negated:
-            return f"Expected not {self.describe_expected()}, but was {actual}"
-        else:
-            return f"Expected {self.describe_expected()}, but {self.describe_mismatch(actual)}"
+
 
 
 # ===== スマートマッチャーシステム =====
@@ -79,18 +41,16 @@ class SmartMatcher:
     == 演算子をオーバーライドして、通常のassert文でマッチャーを使用可能にします。
     """
     
-    def __init__(self, matcher: BaseMatcherMixin):
+    def __init__(self, matcher: MatcherProtocol):
         """SmartMatcherを初期化"""
         self.matcher = matcher
     
     def __eq__(self, other: Any) -> bool:
         """== 演算子をオーバーライドしてマッチング処理を実行"""
-        try:
-            # マッチャーを実行（例外が発生しなければマッチ成功）
-            self.matcher(other)
-            return True
-        except AssertionError:
-            return False
+        result = self.matcher.matches(other)
+        if self.matcher.negated:
+            result = not result
+        return result
     
     def __repr__(self) -> str:
         """SmartMatcherの文字列表現"""
@@ -99,11 +59,12 @@ class SmartMatcher:
 
 # ===== 具体的なマッチャークラス =====
 
-class RegexMatcher(BaseMatcherMixin):
+class RegexMatcher:
     """正規表現にマッチするかチェックするマッチャー"""
     
     def __init__(self, pattern: str, flags: int = 0):
-        super().__init__(pattern)
+        self.expected = pattern
+        self.negated = False
         self.flags = flags
         self.compiled_pattern = re.compile(pattern, flags)
     
@@ -121,11 +82,12 @@ class RegexMatcher(BaseMatcherMixin):
         return f"string matching /{self.expected}/"
 
 
-class AroundNowMatcher(BaseMatcherMixin):
+class AroundNowMatcher:
     """現在時刻の前後指定秒数以内かチェックするマッチャー"""
     
     def __init__(self, tolerance_seconds: int):
-        super().__init__(tolerance_seconds)
+        self.expected = tolerance_seconds
+        self.negated = False
         self.tolerance = timedelta(seconds=tolerance_seconds)
         self.now = datetime.now()
     
@@ -157,8 +119,12 @@ class AroundNowMatcher(BaseMatcherMixin):
         return f"datetime within {self.expected} seconds of {self.now}"
 
 
-class GreaterThanMatcher(BaseMatcherMixin):
+class GreaterThanMatcher:
     """指定値より大きいかチェックするマッチャー"""
+    
+    def __init__(self, expected: Union[int, float]):
+        self.expected = expected
+        self.negated = False
     
     def matches(self, actual: Any) -> bool:
         if not isinstance(actual, (int, float)) or not isinstance(self.expected, (int, float)):
@@ -174,8 +140,12 @@ class GreaterThanMatcher(BaseMatcherMixin):
         return f"number greater than {self.expected}"
 
 
-class LessThanMatcher(BaseMatcherMixin):
+class LessThanMatcher:
     """指定値より小さいかチェックするマッチャー"""
+    
+    def __init__(self, expected: Union[int, float]):
+        self.expected = expected
+        self.negated = False
     
     def matches(self, actual: Any) -> bool:
         if not isinstance(actual, (int, float)) or not isinstance(self.expected, (int, float)):
@@ -191,11 +161,12 @@ class LessThanMatcher(BaseMatcherMixin):
         return f"number less than {self.expected}"
 
 
-class AnyOfMatcher(BaseMatcherMixin):
+class AnyOfMatcher:
     """指定された値のいずれかと一致するかチェックするマッチャー"""
     
     def __init__(self, values: Tuple[Any, ...]):
-        super().__init__(values)
+        self.expected = values
+        self.negated = False
         self.values = values
     
     def matches(self, actual: Any) -> bool:
@@ -208,8 +179,12 @@ class AnyOfMatcher(BaseMatcherMixin):
         return f"any of {list(self.values)}"
 
 
-class ContainsMatcher(BaseMatcherMixin):
+class ContainsMatcher:
     """指定された部分文字列を含むかチェックするマッチャー"""
+    
+    def __init__(self, expected: str):
+        self.expected = expected
+        self.negated = False
     
     def matches(self, actual: Any) -> bool:
         if not isinstance(actual, str):

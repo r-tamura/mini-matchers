@@ -7,7 +7,6 @@ mini-matchers: 軽量スマートアサーションライブラリ
 
 from .matchers import (
     MatcherProtocol,
-    BaseMatcherMixin,
     SmartMatcher,
     regex,
     around_now,
@@ -21,7 +20,6 @@ from .matchers import (
 __all__ = [
     # コアクラス（拡張用）
     'MatcherProtocol',
-    'BaseMatcherMixin',
     
     # スマートマッチャー（メイン機能）
     'SmartMatcher',
