@@ -1,0 +1,13 @@
+[project]
+name = "mini-matchers"
+version = "0.1.0"
+description = "Simple matcher library for Python tests"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "mypy>=1.17.1",
+]
